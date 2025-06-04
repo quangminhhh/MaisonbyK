@@ -1,111 +1,78 @@
-# Thiết kế Backend - Module Sản phẩm (Product)
+# Thiết kế Backend - Module Giỏ hàng (Cart)
 
-**Mục đích:** Quản lý thông tin sản phẩm áo dài và hình ảnh liên quan.
+**Mục đích:** Quản lý giỏ hàng của khách hàng.
 
 **Middleware:**
 
-- `authenticateToken`: Xác thực JWT (cần cho Admin).
-- `authorizeRole(\'ADMIN\')`: Kiểm tra vai trò Admin.
-- `uploadMiddleware`: Middleware xử lý file upload (ví dụ: sử dụng `multer` cho Node.js/Express) cho hình ảnh.
+- `authenticateToken`: Xác thực JWT (bắt buộc để liên kết giỏ hàng với user).
+
+**Lưu trữ Giỏ hàng:**
+
+- Sẽ lưu trực tiếp vào collection `Cart` và `CartItem` trong MongoDB, liên kết với `userId`. Điều này đảm bảo giỏ hàng được đồng bộ trên nhiều thiết bị và phiên đăng nhập.
 
 **API Endpoints:**
 
-1. **Lấy danh sách Sản phẩm (List Products)**
-    - **Endpoint:** `GET /api/products`
-    - **Mô tả:** Lấy danh sách sản phẩm công khai với phân trang, lọc và tìm kiếm.
-    - **Query Params:**
-        - `page`, `limit`: Phân trang.
-        - `category`: Lọc theo slug hoặc ID danh mục.
-        - `search`: Tìm kiếm theo tên, mô tả.
-        - `minPrice`, `maxPrice`: Lọc theo khoảng giá.
-        - `sizes`: Lọc theo kích thước (ví dụ: `sizes=S,M`).
-        - `colors`: Lọc theo màu sắc.
-        - `material`: Lọc theo chất liệu.
-        - `sortBy`: Sắp xếp (ví dụ: `price_asc`, `price_desc`, `createdAt_desc`).
+1. **Lấy thông tin Giỏ hàng (Get Cart)**
+    - **Endpoint:** `GET /api/cart`
+    - **Mô tả:** Lấy thông tin chi tiết giỏ hàng của người dùng đang đăng nhập.
     - **Logic:**
-        - Truy vấn DB lấy danh sách sản phẩm với các điều kiện lọc, tìm kiếm, sắp xếp và phân trang.
-        - Chỉ lấy các sản phẩm có status `AVAILABLE` hoặc `OUT_OF_STOCK` (không lấy `UNLISTED`).
-        - Bao gồm thông tin cơ bản (tên, slug, giá, ảnh đại diện, danh mục).
-    - **Response (Success 200):**`json { "data": [ /* array of product summaries */ ], "pagination": { "page": 1, "limit": 10, "totalItems": 50, "totalPages": 5 } }`
-    - **Phân quyền:** Public.
-2. **Lấy chi tiết Sản phẩm (Get Product Details)**
-    - **Endpoint:** `GET /api/products/{slugOrId}`
-    - **Mô tả:** Lấy thông tin chi tiết của một sản phẩm dựa trên slug hoặc ID.
+        - Sử dụng `authenticateToken` để lấy `userId`.
+        - Tìm giỏ hàng (`Cart`) của user trong DB.
+        - Nếu chưa có, tạo giỏ hàng mới rỗng cho user.
+        - Lấy tất cả `CartItem` liên quan, kèm thông tin sản phẩm (`Product`) cần thiết (tên, giá hiện tại, ảnh đại diện, slug, tồn kho).
+        - Tính toán tổng tiền.
+        - Kiểm tra và cập nhật giỏ hàng nếu sản phẩm không còn tồn tại hoặc hết hàng (ví dụ: đánh dấu item không hợp lệ hoặc tự động xóa).
+    - **Response (Success 200):**`json { "id": "string (cartId)", "userId": "string (userId)", "items": [ { "id": "string (cartItemId)", "productId": "string", "quantity": "number", "size": "string | null", "color": "string | null", "price": "number (giá lúc thêm)", "product": { "id": "string", "name": "string", "slug": "string", "imageUrl": "string | null (ảnh đại diện)", "currentPrice": "number (giá hiện tại)", "stockQuantity": "number", "status": "string (AVAILABLE, OUT_OF_STOCK)" } } // ... more items ], "totalAmount": "number" }`
+    - **Response (Error 401):** Lỗi xác thực.
+    - **Phân quyền:** Đã đăng nhập (CUSTOMER).
+    - **Middleware:** `authenticateToken`.
+2. **Thêm Sản phẩm vào Giỏ hàng (Add Item to Cart)**
+    - **Endpoint:** `POST /api/cart/items`
+    - **Mô tả:** Thêm một sản phẩm (với số lượng và tùy chọn) vào giỏ hàng.
+    - **Request Body:**`json { "productId": "string (required, ObjectId)", "quantity": "number (required, > 0)", "size": "string (optional)", "color": "string (optional)" }`
     - **Logic:**
-        - Tìm sản phẩm theo slug hoặc ID.
-        - Nếu không tìm thấy hoặc status là `UNLISTED`, trả về 404.
-        - Trả về thông tin chi tiết (bao gồm mô tả, tất cả hình ảnh, các tùy chọn size/color, material, category, giá, trạng thái tồn kho tương đối).
-        - Có thể lấy thêm sản phẩm liên quan (cùng danh mục).
-    - **Response (Success 200):** Chi tiết sản phẩm.
-    - **Response (Error 404):** Không tìm thấy sản phẩm.
-    - **Phân quyền:** Public.
-3. **Tạo Sản phẩm (Admin - Create Product)**
-    - **Endpoint:** `POST /api/admin/products`
-    - **Mô tả:** Tạo một sản phẩm mới (chỉ Admin).
-    - **Request Body:** (Content-Type: multipart/form-data nếu có upload ảnh trực tiếp, hoặc JSON nếu URL ảnh được gửi riêng sau khi upload)
-    `json { "name": "string (required)", "description": "string (required)", "price": "number (required, > 0)", "promotionalPrice": "number (optional)", "categoryId": "string (required, ObjectId)", "sizes": "string[] (required)", // ["S", "M", "L"] "colors": "string[] (required)", // ["Trắng", "Đỏ"] "material": "string (optional)", "stockQuantity": "number (required, >= 0)", "status": "string (optional, AVAILABLE | OUT_OF_STOCK | UNLISTED)", "imageUrls": "string[] (optional, URLs từ upload)" // Hoặc xử lý file upload }`
+        - Sử dụng `authenticateToken` để lấy `userId`.
+        - Tìm hoặc tạo giỏ hàng (`Cart`) cho user.
+        - Validate input (`productId` tồn tại, `quantity` hợp lệ).
+        - Kiểm tra tồn kho (`Product.stockQuantity`) so với `quantity` yêu cầu + số lượng đã có trong giỏ (nếu item đã tồn tại).
+        - Kiểm tra xem `CartItem` với cùng `productId`, `size`, `color` đã tồn tại chưa.
+            - Nếu có: Cập nhật `quantity` (cộng dồn). Đảm bảo tổng quantity không vượt tồn kho.
+            - Nếu chưa: Tạo `CartItem` mới, lưu giá sản phẩm (`Product.price` hoặc `promotionalPrice`) vào `CartItem.price`.
+        - Trả về thông tin giỏ hàng đã cập nhật (hoặc chỉ thông báo thành công).
+    - **Response (Success 200/201):** Thông tin giỏ hàng cập nhật hoặc thông báo thành công.
+    - **Response (Error 400/401/404):** Lỗi validation (hết hàng, sản phẩm không tồn tại), xác thực.
+    - **Phân quyền:** Đã đăng nhập (CUSTOMER).
+    - **Middleware:** `authenticateToken`.
+3. **Cập nhật Số lượng Item trong Giỏ hàng (Update Cart Item Quantity)**
+    - **Endpoint:** `PUT /api/cart/items/{cartItemId}`
+    - **Mô tả:** Cập nhật số lượng của một item cụ thể trong giỏ hàng.
+    - **Request Body:**`json { "quantity": "number (required, >= 0)" // Nếu quantity = 0, tương đương xóa item }`
     - **Logic:**
-        - Sử dụng `authenticateToken` và `authorizeRole(\'ADMIN\')`.
-        - Validate input.
-        - Tự động tạo `slug` từ `name`, đảm bảo unique.
-        - Lưu sản phẩm vào DB.
-        - Nếu `imageUrls` được cung cấp, tạo các bản ghi `Image` liên kết với sản phẩm.
-    - **Response (Success 201):** Thông tin sản phẩm vừa tạo.
-    - **Response (Error 400/401/403/409):** Lỗi validation, xác thực, quyền hoặc tên/slug đã tồn tại.
-    - **Phân quyền:** ADMIN.
-    - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`.
-4. **Cập nhật Sản phẩm (Admin - Update Product)**
-    - **Endpoint:** `PUT /api/admin/products/{productId}`
-    - **Mô tả:** Cập nhật thông tin một sản phẩm (chỉ Admin).
-    - **Request Body:** Tương tự POST, các trường là optional.
+        - Sử dụng `authenticateToken` để lấy `userId`.
+        - Tìm `CartItem` theo `cartItemId`. Đảm bảo item này thuộc giỏ hàng của user đang đăng nhập.
+        - Nếu `quantity == 0`, xóa `CartItem`.
+        - Nếu `quantity > 0`:
+            - Kiểm tra tồn kho (`Product.stockQuantity`) so với `quantity` mới.
+            - Cập nhật `quantity` của `CartItem`.
+        - Trả về thông tin giỏ hàng đã cập nhật.
+    - **Response (Success 200):** Thông tin giỏ hàng cập nhật.
+    - **Response (Error 400/401/404):** Lỗi validation (hết hàng), xác thực, không tìm thấy item hoặc item không thuộc user.
+    - **Phân quyền:** Đã đăng nhập (CUSTOMER).
+    - **Middleware:** `authenticateToken`.
+4. **Xóa Item khỏi Giỏ hàng (Remove Cart Item)**
+    - **Endpoint:** `DELETE /api/cart/items/{cartItemId}`
+    - **Mô tả:** Xóa một item cụ thể khỏi giỏ hàng.
     - **Logic:**
-        - Sử dụng `authenticateToken` và `authorizeRole(\'ADMIN\')`.
-        - Validate input.
-        - Nếu `name` thay đổi và `slug` không được cung cấp, tạo lại slug (đảm bảo unique).
-        - Cập nhật sản phẩm trong DB.
-        - Xử lý cập nhật hình ảnh (thêm/xóa).
-    - **Response (Success 200):** Thông tin sản phẩm đã cập nhật.
-    - **Response (Error 400/401/403/404/409):** Lỗi validation, xác thực, quyền, không tìm thấy hoặc tên/slug đã tồn tại.
-    - **Phân quyền:** ADMIN.
-    - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`.
-5. **Xóa Sản phẩm (Admin - Delete Product)**
-    - **Endpoint:** `DELETE /api/admin/products/{productId}`
-    - **Mô tả:** Xóa một sản phẩm (chỉ Admin).
-    - **Logic:**
-        - Sử dụng `authenticateToken` và `authorizeRole(\'ADMIN\')`.
-        - Kiểm tra ràng buộc: Sản phẩm có nằm trong đơn hàng nào chưa hoàn thành không? (Theo schema, `onDelete: Restrict` trên `OrderItem` sẽ ngăn xóa nếu có liên kết).
-        - **Chiến lược xóa:**
-            - Xóa mềm: Cập nhật `status = UNLISTED` hoặc thêm trường `isDeleted = true`.
-            - Xóa cứng: Xóa sản phẩm và các hình ảnh liên quan (Prisma `onDelete: Cascade` trên `Image`). Cần đảm bảo không có ràng buộc từ `OrderItem`.
-    - **Response (Success 204):** No Content.
-    - **Response (Error 400/401/403/404):** Lỗi ràng buộc (còn trong đơn hàng), xác thực, quyền, hoặc không tìm thấy.
-    - **Phân quyền:** ADMIN.
-    - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`.
-6. **Upload Hình ảnh Sản phẩm (Admin - Upload Product Image)**
-    - **Endpoint:** `POST /api/admin/products/upload-image`
-    - **Mô tả:** Tải lên một file hình ảnh cho sản phẩm.
-    - **Request Body:** `multipart/form-data` với field `image`.
-    - **Logic:**
-        - Sử dụng `authenticateToken` và `authorizeRole(\'ADMIN\')`.
-        - Sử dụng `uploadMiddleware` để xử lý file.
-        - Validate file (kích thước, loại file: jpg, png, webp).
-        - Lưu file vào thư mục tĩnh (ví dụ: `public/uploads/products`) với tên file unique.
-        - Trả về URL công khai của file ảnh đã lưu.
-    - **Response (Success 200):**`json { "imageUrl": "/uploads/products/unique-image-name.jpg" }`
-    - **Response (Error 400/401/403):** Lỗi file không hợp lệ, xác thực, quyền.
-    - **Phân quyền:** ADMIN.
-    - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`, `uploadMiddleware`.
-7. **(Optional) Quản lý Hình ảnh Sản phẩm (Admin - Manage Product Images)**
-    - **Endpoint:** `POST /api/admin/products/{productId}/images` (Thêm ảnh bằng URL đã upload)
-    - **Endpoint:** `DELETE /api/admin/products/{productId}/images/{imageId}` (Xóa ảnh khỏi sản phẩm)
-    - **Endpoint:** `PATCH /api/admin/products/{productId}/images/{imageId}/default` (Đặt làm ảnh đại diện)
-    - **Mô tả:** Quản lý danh sách hình ảnh của một sản phẩm cụ thể.
-    - **Logic:** Thực hiện các thao tác CRUD trên collection `Image` liên kết với `productId`.
-    - **Phân quyền:** ADMIN.
-    - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`.
+        - Sử dụng `authenticateToken` để lấy `userId`.
+        - Tìm `CartItem` theo `cartItemId`. Đảm bảo item này thuộc giỏ hàng của user đang đăng nhập.
+        - Xóa `CartItem` khỏi DB.
+        - Trả về thông tin giỏ hàng đã cập nhật.
+    - **Response (Success 200):** Thông tin giỏ hàng cập nhật.
+    - **Response (Error 401/404):** Lỗi xác thực, không tìm thấy item hoặc item không thuộc user.
+    - **Phân quyền:** Đã đăng nhập (CUSTOMER).
+    - **Middleware:** `authenticateToken`.
 
 **Lưu ý:**
 
-- Cần xử lý logic tạo slug tự động và đảm bảo tính duy nhất.
-- Quản lý tồn kho cần được cập nhật khi có đơn hàng được tạo/hủy.
-- Việc upload ảnh cần được thiết kế cẩn thận về bảo mật và lưu trữ.
+- Cần xử lý đồng thời (concurrency) khi cập nhật giỏ hàng và kiểm tra tồn kho, đặc biệt là khi nhiều request xảy ra cùng lúc hoặc khi tiến hành checkout.
+- Cân nhắc việc xóa các giỏ hàng không hoạt động trong thời gian dài.
