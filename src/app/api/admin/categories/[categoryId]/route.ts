@@ -23,7 +23,7 @@ export async function PUT(
     return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
 
-  const updateData: Prisma.CategoryUpdateInput = { ...parsed.data }
+  const updateData: Prisma.CategoryUncheckedUpdateInput = { ...parsed.data }
   if (parsed.data.name && !parsed.data.slug) {
     updateData.slug = slugify(parsed.data.name, { lower: true, strict: true })
   } else if (parsed.data.slug) {
