@@ -3,7 +3,11 @@ import prisma from '@/lib/prisma'
 import { authenticateToken, authorizeRole } from '@/lib/auth'
 import { adminUpdateUserSchema } from '@/lib/validators/user'
 
-export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ userId: string }> },
+): Promise<NextResponse> {
+  const { userId } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -13,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: { userId: stri
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: params.userId },
+    where: { id: userId },
     select: {
       id: true,
       name: true,
@@ -40,7 +44,11 @@ export async function GET(req: NextRequest, { params }: { params: { userId: stri
   return NextResponse.json({ user })
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { userId: string } }) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ userId: string }> },
+): Promise<NextResponse> {
+  const { userId } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -56,7 +64,7 @@ export async function PUT(req: NextRequest, { params }: { params: { userId: stri
   }
 
   const updated = await prisma.user.update({
-    where: { id: params.userId },
+    where: { id: userId },
     data: parsed.data,
     select: { id: true, name: true, email: true, phone: true, role: true },
   })

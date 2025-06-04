@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { authenticateToken } from '@/lib/auth'
 import { updateCartItemSchema } from '@/lib/validators/cart'
-import { fetchCart } from '../../route'
+import { fetchCart } from '@/lib/cart'
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { cartItemId: string } },
-) {
+  { params }: { params: Promise<{ cartItemId: string }> },
+): Promise<NextResponse> {
+  const { cartItemId } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,7 +21,7 @@ export async function PUT(
   }
 
   const item = await prisma.cartItem.findFirst({
-    where: { id: params.cartItemId, cart: { userId: payload.userId } },
+    where: { id: cartItemId, cart: { userId: payload.userId } },
     include: { product: { select: { stockQuantity: true } } },
   })
   if (!item) {
@@ -42,15 +43,16 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { cartItemId: string } },
-) {
+  { params }: { params: Promise<{ cartItemId: string }> },
+): Promise<NextResponse> {
+  const { cartItemId } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const deleted = await prisma.cartItem.deleteMany({
-    where: { id: params.cartItemId, cart: { userId: payload.userId } },
+    where: { id: cartItemId, cart: { userId: payload.userId } },
   })
   if (deleted.count === 0) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })

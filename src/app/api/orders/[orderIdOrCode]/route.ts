@@ -4,8 +4,9 @@ import { authenticateToken } from '@/lib/auth'
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { orderIdOrCode: string } },
-) {
+  { params }: { params: Promise<{ orderIdOrCode: string }> },
+): Promise<NextResponse> {
+  const { orderIdOrCode } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -13,7 +14,7 @@ export async function GET(
 
   const order = await prisma.order.findFirst({
     where: {
-      OR: [{ id: params.orderIdOrCode }, { orderCode: params.orderIdOrCode }],
+      OR: [{ id: orderIdOrCode }, { orderCode: orderIdOrCode }],
     },
     include: {
       items: true,
