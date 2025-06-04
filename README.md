@@ -3,9 +3,13 @@ This project uses [Next.js](https://nextjs.org) with TypeScript and TailwindCSS 
 
 ## Getting Started
 
-Copy `.env.example` to `.env` and update the values for your environment. Then run the development server:
+Copy `.env.example` to `.env` and update the values for your environment. Install dependencies and then run the development server:
 
 ```bash
+# install dependencies
+npm install
+
+# start development server
 npm run dev
 # or
 yarn dev
@@ -35,6 +39,34 @@ src/
   styles/           # Global styles
   types/            # TypeScript types
 ```
+
+## Scripts
+
+These scripts are available via `npm`:
+
+```bash
+npm run dev     # start development server
+npm run build   # build for production
+npm run start   # run built app
+npm run lint    # lint the codebase
+npm run seed    # seed sample data
+```
+
+## Users Flow
+
+1. Người dùng đăng ký tài khoản hoặc đăng nhập.
+2. Duyệt danh mục, xem chi tiết sản phẩm và thêm vào giỏ hàng.
+3. Thực hiện đặt hàng và theo dõi lịch sử đơn hàng trong trang tài khoản.
+
+## Admin Flow
+
+1. Đăng nhập bằng tài khoản quản trị được tạo khi seed dữ liệu.
+2. Quản lý danh mục, sản phẩm, đơn hàng thông qua các trang trong `src/app/(admin)`.
+
+## System Flow
+
+- API được xây dựng dưới `src/app/api` sử dụng Prisma để truy cập cơ sở dữ liệu.
+- Giao diện người dùng nằm trong `src/app/(customer)` và `src/app/(admin)`.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to load the Geist typeface.
 
