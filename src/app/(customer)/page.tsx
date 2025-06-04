@@ -1,3 +1,21 @@
+'use client'
+
+import { Button } from '@/components/ui/Button'
+import { useCart } from '@/hooks/useCart'
+
 export default function Home() {
-  return <div>Customer Home</div>
+  const { items, addItem } = useCart()
+
+  return (
+    <div className="p-4 space-y-4">
+      <div>Items in cart: {items.length}</div>
+      <Button
+        onClick={() =>
+          addItem({ id: Date.now().toString(), name: 'Sample', price: 100000, quantity: 1 })
+        }
+      >
+        Add Sample Item
+      </Button>
+    </div>
+  )
 }
