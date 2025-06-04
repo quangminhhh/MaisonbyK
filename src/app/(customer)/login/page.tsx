@@ -5,19 +5,19 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import LoginForm from '@/components/features/auth/LoginForm'
 
-export default function AdminLogin() {
-  const { isAuthenticated, user } = useAuth()
+export default function CustomerLoginPage() {
+  const { isAuthenticated } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'ADMIN') {
-      router.push('/admin/dashboard')
+    if (isAuthenticated) {
+      router.push('/')
     }
-  }, [isAuthenticated, user, router])
+  }, [isAuthenticated, router])
 
   return (
     <div className="max-w-sm mx-auto py-10">
-      <LoginForm isAdminLogin />
+      <LoginForm />
     </div>
   )
 }
