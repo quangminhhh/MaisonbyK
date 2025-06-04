@@ -1,78 +1,94 @@
-# Thiết kế Backend - Module Giỏ hàng (Cart)
+# Thiết kế Backend - Module Đơn hàng (Order)
 
-**Mục đích:** Quản lý giỏ hàng của khách hàng.
+**Mục đích:** Xử lý quy trình đặt hàng và quản lý đơn hàng.
 
 **Middleware:**
 
-- `authenticateToken`: Xác thực JWT (bắt buộc để liên kết giỏ hàng với user).
-
-**Lưu trữ Giỏ hàng:**
-
-- Sẽ lưu trực tiếp vào collection `Cart` và `CartItem` trong MongoDB, liên kết với `userId`. Điều này đảm bảo giỏ hàng được đồng bộ trên nhiều thiết bị và phiên đăng nhập.
+- `authenticateToken`: Xác thực JWT.
+- `authorizeRole(\'ADMIN\')`: Kiểm tra vai trò Admin (cho các thao tác quản lý).
 
 **API Endpoints:**
 
-1. **Lấy thông tin Giỏ hàng (Get Cart)**
-    - **Endpoint:** `GET /api/cart`
-    - **Mô tả:** Lấy thông tin chi tiết giỏ hàng của người dùng đang đăng nhập.
+1. **Tạo Đơn hàng (Create Order)**
+    - **Endpoint:** `POST /api/orders`
+    - **Mô tả:** Tạo đơn hàng mới từ giỏ hàng của người dùng.
+    - **Request Body:**`json { "shippingAddressId": "string (required, ObjectId)", // ID của địa chỉ đã lưu // Hoặc có thể cho phép nhập địa chỉ mới trực tiếp // "shippingAddress": { "recipientName": "...", "street": "...", "city": "...", "phone": "..." }, "paymentMethod": "COD", // Hiện tại chỉ hỗ trợ COD "notes": "string (optional)" }`
     - **Logic:**
         - Sử dụng `authenticateToken` để lấy `userId`.
-        - Tìm giỏ hàng (`Cart`) của user trong DB.
-        - Nếu chưa có, tạo giỏ hàng mới rỗng cho user.
-        - Lấy tất cả `CartItem` liên quan, kèm thông tin sản phẩm (`Product`) cần thiết (tên, giá hiện tại, ảnh đại diện, slug, tồn kho).
-        - Tính toán tổng tiền.
-        - Kiểm tra và cập nhật giỏ hàng nếu sản phẩm không còn tồn tại hoặc hết hàng (ví dụ: đánh dấu item không hợp lệ hoặc tự động xóa).
-    - **Response (Success 200):**`json { "id": "string (cartId)", "userId": "string (userId)", "items": [ { "id": "string (cartItemId)", "productId": "string", "quantity": "number", "size": "string | null", "color": "string | null", "price": "number (giá lúc thêm)", "product": { "id": "string", "name": "string", "slug": "string", "imageUrl": "string | null (ảnh đại diện)", "currentPrice": "number (giá hiện tại)", "stockQuantity": "number", "status": "string (AVAILABLE, OUT_OF_STOCK)" } } // ... more items ], "totalAmount": "number" }`
-    - **Response (Error 401):** Lỗi xác thực.
+        - Lấy giỏ hàng (`Cart` và `CartItem`) của user.
+        - Nếu giỏ hàng trống, trả về lỗi 400.
+        - Lấy thông tin địa chỉ giao hàng từ `shippingAddressId` (hoặc từ request body).
+        - **Transaction:** Bắt đầu một transaction để đảm bảo tính toàn vẹn.
+            - Kiểm tra lại tồn kho cho từng sản phẩm trong giỏ hàng. Nếu có sản phẩm hết hàng hoặc không đủ số lượng, hủy transaction và trả về lỗi 400.
+            - Tạo bản ghi `Order` mới với trạng thái `PENDING`, lưu `shippingAddress` dưới dạng JSON, `paymentMethod`, `notes`.
+            - Tạo các bản ghi `OrderItem` tương ứng với từng `CartItem`:
+                - Lưu `productId`, `quantity`, `size`, `color`.
+                - Lưu `price` (giá tại thời điểm đặt hàng).
+                - Tạo `productSnapshot` (lưu tên, ảnh SP).
+            - Tính `totalAmount` cho `Order`.
+            - **Trừ tồn kho:** Cập nhật `stockQuantity` của các `Product` tương ứng.
+            - Xóa giỏ hàng (`Cart` và `CartItem`) của user sau khi đặt hàng thành công.
+            - Tạo bản ghi `OrderStatusUpdate` đầu tiên với status `PENDING`.
+        - **Commit Transaction.**
+        - (Optional) Gửi email xác nhận đơn hàng cho khách.
+    - **Response (Success 201):**`json { "orderId": "string (orderId)", "orderCode": "string (orderCode)", "status": "PENDING", "totalAmount": "number" }`
+    - **Response (Error 400/401/404):** Lỗi validation (giỏ hàng trống, hết hàng, địa chỉ không hợp lệ), xác thực.
     - **Phân quyền:** Đã đăng nhập (CUSTOMER).
     - **Middleware:** `authenticateToken`.
-2. **Thêm Sản phẩm vào Giỏ hàng (Add Item to Cart)**
-    - **Endpoint:** `POST /api/cart/items`
-    - **Mô tả:** Thêm một sản phẩm (với số lượng và tùy chọn) vào giỏ hàng.
-    - **Request Body:**`json { "productId": "string (required, ObjectId)", "quantity": "number (required, > 0)", "size": "string (optional)", "color": "string (optional)" }`
+2. **Lấy danh sách Đơn hàng của tôi (List My Orders)**
+    - **Endpoint:** `GET /api/orders/my`
+    - **Mô tả:** Lấy danh sách các đơn hàng đã đặt của người dùng đang đăng nhập.
+    - **Query Params:** `page`, `limit`, `status`.
     - **Logic:**
         - Sử dụng `authenticateToken` để lấy `userId`.
-        - Tìm hoặc tạo giỏ hàng (`Cart`) cho user.
-        - Validate input (`productId` tồn tại, `quantity` hợp lệ).
-        - Kiểm tra tồn kho (`Product.stockQuantity`) so với `quantity` yêu cầu + số lượng đã có trong giỏ (nếu item đã tồn tại).
-        - Kiểm tra xem `CartItem` với cùng `productId`, `size`, `color` đã tồn tại chưa.
-            - Nếu có: Cập nhật `quantity` (cộng dồn). Đảm bảo tổng quantity không vượt tồn kho.
-            - Nếu chưa: Tạo `CartItem` mới, lưu giá sản phẩm (`Product.price` hoặc `promotionalPrice`) vào `CartItem.price`.
-        - Trả về thông tin giỏ hàng đã cập nhật (hoặc chỉ thông báo thành công).
-    - **Response (Success 200/201):** Thông tin giỏ hàng cập nhật hoặc thông báo thành công.
-    - **Response (Error 400/401/404):** Lỗi validation (hết hàng, sản phẩm không tồn tại), xác thực.
+        - Truy vấn DB lấy danh sách `Order` của user với phân trang và lọc theo trạng thái.
+        - Sắp xếp theo ngày tạo mới nhất.
+        - Trả về thông tin tóm tắt (mã đơn, ngày đặt, tổng tiền, trạng thái).
+    - **Response (Success 200):**`json { "data": [ /* array of order summaries */ ], "pagination": { /* pagination info */ } }`
     - **Phân quyền:** Đã đăng nhập (CUSTOMER).
     - **Middleware:** `authenticateToken`.
-3. **Cập nhật Số lượng Item trong Giỏ hàng (Update Cart Item Quantity)**
-    - **Endpoint:** `PUT /api/cart/items/{cartItemId}`
-    - **Mô tả:** Cập nhật số lượng của một item cụ thể trong giỏ hàng.
-    - **Request Body:**`json { "quantity": "number (required, >= 0)" // Nếu quantity = 0, tương đương xóa item }`
+3. **Lấy chi tiết Đơn hàng (Get Order Details)**
+    - **Endpoint:** `GET /api/orders/{orderIdOrCode}`
+    - **Mô tả:** Lấy thông tin chi tiết của một đơn hàng cụ thể (cho Customer hoặc Admin).
     - **Logic:**
-        - Sử dụng `authenticateToken` để lấy `userId`.
-        - Tìm `CartItem` theo `cartItemId`. Đảm bảo item này thuộc giỏ hàng của user đang đăng nhập.
-        - Nếu `quantity == 0`, xóa `CartItem`.
-        - Nếu `quantity > 0`:
-            - Kiểm tra tồn kho (`Product.stockQuantity`) so với `quantity` mới.
-            - Cập nhật `quantity` của `CartItem`.
-        - Trả về thông tin giỏ hàng đã cập nhật.
-    - **Response (Success 200):** Thông tin giỏ hàng cập nhật.
-    - **Response (Error 400/401/404):** Lỗi validation (hết hàng), xác thực, không tìm thấy item hoặc item không thuộc user.
-    - **Phân quyền:** Đã đăng nhập (CUSTOMER).
+        - Sử dụng `authenticateToken`.
+        - Tìm `Order` theo `orderId` hoặc `orderCode`.
+        - Nếu không tìm thấy, trả về 404.
+        - **Kiểm tra quyền:** Nếu user là CUSTOMER, chỉ cho phép xem đơn hàng của chính họ (`order.userId === req.user.id`). Nếu là ADMIN, cho phép xem mọi đơn hàng.
+        - Lấy thông tin chi tiết đơn hàng, bao gồm `items` (với `productSnapshot`), `shippingAddress`, `statusHistory`.
+    - **Response (Success 200):** Chi tiết đơn hàng.
+    - **Response (Error 401/403/404):** Lỗi xác thực, không có quyền xem, hoặc không tìm thấy đơn hàng.
+    - **Phân quyền:** Đã đăng nhập (CUSTOMER xem của mình, ADMIN xem tất cả).
     - **Middleware:** `authenticateToken`.
-4. **Xóa Item khỏi Giỏ hàng (Remove Cart Item)**
-    - **Endpoint:** `DELETE /api/cart/items/{cartItemId}`
-    - **Mô tả:** Xóa một item cụ thể khỏi giỏ hàng.
+4. **Lấy danh sách Tất cả Đơn hàng (Admin - List All Orders)**
+    - **Endpoint:** `GET /api/admin/orders`
+    - **Mô tả:** Lấy danh sách tất cả đơn hàng trong hệ thống (cho Admin).
+    - **Query Params:** `page`, `limit`, `status`, `search` (theo mã đơn, tên KH, email KH).
     - **Logic:**
-        - Sử dụng `authenticateToken` để lấy `userId`.
-        - Tìm `CartItem` theo `cartItemId`. Đảm bảo item này thuộc giỏ hàng của user đang đăng nhập.
-        - Xóa `CartItem` khỏi DB.
-        - Trả về thông tin giỏ hàng đã cập nhật.
-    - **Response (Success 200):** Thông tin giỏ hàng cập nhật.
-    - **Response (Error 401/404):** Lỗi xác thực, không tìm thấy item hoặc item không thuộc user.
-    - **Phân quyền:** Đã đăng nhập (CUSTOMER).
-    - **Middleware:** `authenticateToken`.
+        - Sử dụng `authenticateToken` và `authorizeRole(\'ADMIN\')`.
+        - Truy vấn DB lấy danh sách `Order` với phân trang, lọc, tìm kiếm.
+        - Bao gồm thông tin khách hàng liên quan.
+    - **Response (Success 200):**`json { "data": [ /* array of order summaries with customer info */ ], "pagination": { /* pagination info */ } }`
+    - **Phân quyền:** ADMIN.
+    - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`.
+5. **Cập nhật Trạng thái Đơn hàng (Admin - Update Order Status)**
+    - **Endpoint:** `PATCH /api/admin/orders/{orderId}/status`
+    - **Mô tả:** Cập nhật trạng thái của một đơn hàng (chỉ Admin).
+    - **Request Body:**`json { "status": "string (required, PROCESSING | SHIPPING | DELIVERED | CANCELLED)" }`
+    - **Logic:**
+        - Sử dụng `authenticateToken` và `authorizeRole(\'ADMIN\')`.
+        - Tìm `Order` theo `orderId`.
+        - Validate trạng thái mới (ví dụ: không thể chuyển từ DELIVERED về PENDING).
+        - Cập nhật `status` của `Order`.
+        - Tạo bản ghi `OrderStatusUpdate` mới với trạng thái mới và `updatedBy = req.user.id`.
+        - **Xử lý hoàn kho (nếu hủy đơn):** Nếu trạng thái mới là `CANCELLED`, cần cộng lại số lượng sản phẩm trong `OrderItem` vào `Product.stockQuantity` (cần transaction).
+        - (Optional) Gửi email thông báo cập nhật trạng thái cho khách hàng.
+    - **Response (Success 200):** Thông tin đơn hàng đã cập nhật (hoặc chỉ trạng thái mới).
+    - **Response (Error 400/401/403/404):** Lỗi validation (trạng thái không hợp lệ), xác thực, quyền, không tìm thấy đơn hàng.
+    - **Phân quyền:** ADMIN.
+    - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`.
 
 **Lưu ý:**
 
-- Cần xử lý đồng thời (concurrency) khi cập nhật giỏ hàng và kiểm tra tồn kho, đặc biệt là khi nhiều request xảy ra cùng lúc hoặc khi tiến hành checkout.
-- Cân nhắc việc xóa các giỏ hàng không hoạt động trong thời gian dài.
+- Việc tạo đơn hàng và cập nhật trạng thái (đặc biệt là hủy đơn) cần được thực hiện trong transaction để đảm bảo tính nhất quán dữ liệu (tồn kho, trạng thái đơn hàng).
+- Cần định nghĩa rõ quy trình chuyển đổi trạng thái hợp lệ.
