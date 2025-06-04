@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@/components/ui/Button'
@@ -51,15 +51,16 @@ export default function CategoryForm({ initialData, onSubmitSuccess }: CategoryF
     reset()
   }
 
-  const renderOptions = (cats: CategoryNode[], level = 0) =>
-    cats.map((c) => (
-      <>
-        <option key={c.id} value={c.id}>
-          {`${'--'.repeat(level)} ${c.name}`}
-        </option>
-        {c.children && renderOptions(c.children, level + 1)}
-      </>
-    ))
+  const renderOptions = (
+    cats: CategoryNode[],
+    level = 0,
+  ): ReactElement[] =>
+    cats.flatMap((c) => [
+      <option key={c.id} value={c.id}>
+        {`${'--'.repeat(level)} ${c.name}`}
+      </option>,
+      ...(c.children ? renderOptions(c.children, level + 1) : []),
+    ])
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 w-80">

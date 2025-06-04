@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useCategoryTree, type CategoryNode } from '@/hooks/useCategories'
+import type { ReactElement } from 'react'
 
-function renderMenu(categories: CategoryNode[]): JSX.Element {
+function renderMenu(categories: CategoryNode[]): ReactElement {
   return (
     <ul className="pl-4 space-y-1">
       {categories.map((c) => (
