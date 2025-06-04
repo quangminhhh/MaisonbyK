@@ -11,7 +11,7 @@ export default function Home() {
       <div>Items in cart: {items.length}</div>
       <Button
         onClick={() =>
-          addItem({ id: Date.now().toString(), name: 'Sample', price: 100000, quantity: 1 })
+          addItem({ productId: Date.now().toString(), quantity: 1 })
         }
       >
         Add Sample Item

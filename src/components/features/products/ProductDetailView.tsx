@@ -31,7 +31,7 @@ export default function ProductDetailView() {
   if (!data) return <div>Loading...</div>
 
   const handleAdd = () => {
-    addItem({ id: data.id, name: data.name, price: data.promotionalPrice ?? data.price, quantity: 1 })
+    addItem({ productId: data.id, quantity: 1 })
   }
 
   return (

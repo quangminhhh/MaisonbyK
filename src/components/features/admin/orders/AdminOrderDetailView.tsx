@@ -3,7 +3,8 @@
 import { useParams } from 'next/navigation'
 import useSWR from 'swr'
 import { apiFetch } from '@/lib/api'
-import OrderSummary, { type OrderItemData } from '../../orders/OrderSummary'
+import OrderSummary from '../../orders/OrderSummary'
+import { type OrderItemData } from '../../orders/OrderItem'
 import OrderStatusUpdater from './OrderStatusUpdater'
 
 interface Response {
@@ -22,7 +23,7 @@ export default function AdminOrderDetailView() {
   const params = useParams<{ orderId: string }>()
   const { data, mutate } = useSWR<Response>(
     params?.orderId ? `/api/orders/${params.orderId}` : null,
-    (url) => apiFetch<Response>(url)
+    (url: string) => apiFetch<Response>(url)
   )
 
   if (!data) return <div>Loading...</div>

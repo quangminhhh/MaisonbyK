@@ -3,7 +3,8 @@
 import { useParams, useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { apiFetch } from '@/lib/api'
-import OrderSummary, { type OrderItemData } from './OrderSummary'
+import OrderSummary from './OrderSummary'
+import { type OrderItemData } from './OrderItem'
 import { Button } from '@/components/ui/Button'
 
 interface Response {
@@ -20,7 +21,7 @@ export default function OrderConfirmation() {
   const router = useRouter()
   const { data } = useSWR<Response>(
     params?.orderId ? `/api/orders/${params.orderId}` : null,
-    (url) => apiFetch<Response>(url)
+    (url: string) => apiFetch<Response>(url)
   )
 
   if (!data) return <div>Loading...</div>
