@@ -58,7 +58,6 @@ model Category {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  @@index([slug])
 }
 
 // --- Module Sản phẩm ---
@@ -89,7 +88,6 @@ model Product {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  @@index([slug])
   @@index([categoryId])
   @@index([name])
   @@fulltext([name, description])
@@ -167,7 +165,6 @@ model Order {
   updatedAt      DateTime      @updatedAt
 
   @@index([userId])
-  @@index([orderCode])
   @@index([status])
 }
 
