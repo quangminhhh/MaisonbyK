@@ -1,4 +1,5 @@
-This project uses [Next.js](https://nextjs.org) with TypeScript and TailwindCSS.
+This project uses [Next.js](https://nextjs.org) with TypeScript and TailwindCSS to develop Ecommerce Software about "Áo dài truyền thống Việt Nam"
+
 
 ## Getting Started
 

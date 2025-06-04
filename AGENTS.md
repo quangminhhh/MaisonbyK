@@ -1,84 +1,77 @@
-# Thiết kế Backend - Module Người dùng (User)
+# Thiết kế Backend - Module Danh mục (Category)
 
-**Mục đích:** Quản lý thông tin tài khoản người dùng (Khách hàng và Quản trị viên).
+**Mục đích:** Quản lý các danh mục sản phẩm.
 
 **Middleware:**
 
-- `authenticateToken`: Xác thực JWT.
-- `authorizeRole(role)`: Kiểm tra vai trò (CUSTOMER, ADMIN).
+- `authenticateToken`: Xác thực JWT (cần cho Admin).
+- `authorizeRole(\'ADMIN\')`: Kiểm tra vai trò Admin.
 
 **API Endpoints:**
 
-1. **Lấy thông tin hồ sơ cá nhân (Get My Profile)**
-    - **Endpoint:** `GET /api/users/me`
-    - **Mô tả:** Lấy thông tin chi tiết của người dùng đang đăng nhập.
+1. **Lấy danh sách Danh mục (List Categories)**
+    - **Endpoint:** `GET /api/categories`
+    - **Mô tả:** Lấy danh sách tất cả danh mục, có thể dùng cho cả Customer và Admin. Có thể hỗ trợ lấy cây danh mục.
+    - **Query Params:** `parentId` (lấy danh mục con), `tree=true` (lấy toàn bộ cây danh mục).
     - **Logic:**
-        - Sử dụng `authenticateToken` để lấy `userId`.
-        - Truy vấn DB để lấy thông tin user (không bao gồm password).
-        - Có thể kèm theo thông tin địa chỉ mặc định.
-    - **Response (Success 200):**`json { "id": "string", "name": "string", "email": "string", "phone": "string | null", "role": "CUSTOMER", // Hoặc ADMIN "defaultAddress": { // Optional "id": "string", "recipientName": "string", "street": "string", "city": "string", "phone": "string" } // ... other relevant fields }`
-    - **Response (Error 401/404):** Lỗi xác thực hoặc không tìm thấy user.
-    - **Phân quyền:** Đã đăng nhập (CUSTOMER hoặc ADMIN).
-    - **Middleware:** `authenticateToken`.
-2. **Cập nhật thông tin hồ sơ cá nhân (Update My Profile)**
-    - **Endpoint:** `PUT /api/users/me`
-    - **Mô tả:** Cho phép người dùng đang đăng nhập cập nhật thông tin cá nhân (tên, số điện thoại).
-    - **Request Body:**`json { "name": "string (optional)", "phone": "string (optional)" // Không cho phép cập nhật email, role, password qua endpoint này }`
+        - Truy vấn DB lấy danh sách danh mục.
+        - Nếu `tree=true`, xây dựng cấu trúc cây.
+        - Có thể thêm thông tin số lượng sản phẩm trong mỗi danh mục.
+    - **Response (Success 200):**`json [ { "id": "string", "name": "string", "slug": "string", "description": "string | null", "imageUrl": "string | null", "parentId": "string | null", "children": [] // Nếu tree=true // "productCount": number // Optional } // ... more categories ]`
+    - **Phân quyền:** Public.
+2. **Lấy chi tiết Danh mục (Get Category Details)**
+    - **Endpoint:** `GET /api/categories/{slugOrId}`
+    - **Mô tả:** Lấy thông tin chi tiết của một danh mục dựa trên slug hoặc ID.
     - **Logic:**
-        - Sử dụng `authenticateToken` để lấy `userId`.
-        - Validate input.
-        - Cập nhật thông tin user trong DB.
-        - Trả về thông tin user đã cập nhật.
-    - **Response (Success 200):** Thông tin user đã cập nhật (tương tự GET /api/users/me).
-    - **Response (Error 400/401/404):** Lỗi validation, xác thực hoặc không tìm thấy user.
-    - **Phân quyền:** Đã đăng nhập (CUSTOMER hoặc ADMIN).
-    - **Middleware:** `authenticateToken`.
-3. **Quản lý Địa chỉ (Address Management - CRUD)**
-    - **Endpoint:** `POST /api/users/me/addresses` (Thêm mới)
-    - **Endpoint:** `GET /api/users/me/addresses` (Lấy danh sách)
-    - **Endpoint:** `PUT /api/users/me/addresses/{addressId}` (Cập nhật)
-    - **Endpoint:** `DELETE /api/users/me/addresses/{addressId}` (Xóa)
-    - **Endpoint:** `PATCH /api/users/me/addresses/{addressId}/default` (Đặt làm mặc định)
-    - **Mô tả:** Quản lý danh sách địa chỉ giao hàng của người dùng.
-    - **Request Body (POST/PUT):**`json { "recipientName": "string (required)", "street": "string (required)", "city": "string (required)", "phone": "string (required)" }`
-    - **Logic:**
-        - Sử dụng `authenticateToken` để lấy `userId`.
-        - Thực hiện các thao tác CRUD trên collection `Address` liên kết với `userId`.
-        - Khi đặt làm mặc định, cần cập nhật `isDefault = false` cho các địa chỉ khác của cùng user.
-    - **Response:** Dữ liệu địa chỉ hoặc danh sách địa chỉ.
-    - **Phân quyền:** Đã đăng nhập (CUSTOMER hoặc ADMIN).
-    - **Middleware:** `authenticateToken`.
-4. **Lấy danh sách Người dùng (Admin - List Users)**
-    - **Endpoint:** `GET /api/admin/users`
-    - **Mô tả:** Lấy danh sách tất cả người dùng (cho Admin).
-    - **Query Params:** `page`, `limit`, `search` (theo tên/email), `role`.
+        - Tìm danh mục theo slug hoặc ID.
+        - Trả về thông tin chi tiết.
+    - **Response (Success 200):** Chi tiết một danh mục (tương tự item trong list).
+    - **Response (Error 404):** Không tìm thấy danh mục.
+    - **Phân quyền:** Public.
+3. **Tạo Danh mục (Admin - Create Category)**
+    - **Endpoint:** `POST /api/admin/categories`
+    - **Mô tả:** Tạo một danh mục mới (chỉ Admin).
+    - **Request Body:**`json { "name": "string (required)", "description": "string (optional)", "parentId": "string (optional, ObjectId)", "imageUrl": "string (optional, URL trả về từ upload)" }`
     - **Logic:**
         - Sử dụng `authenticateToken` và `authorizeRole(\'ADMIN\')`.
-        - Truy vấn DB lấy danh sách user với phân trang, tìm kiếm, lọc.
-        - Không trả về mật khẩu.
-    - **Response (Success 200):**`json { "data": [ /* array of user objects */ ], "pagination": { "page": 1, "limit": 10, "totalItems": 100, "totalPages": 10 } }`
-    - **Response (Error 401/403):** Lỗi xác thực hoặc không có quyền.
+        - Validate input (tên không trùng).
+        - Tự động tạo `slug` từ `name` (ví dụ: dùng thư viện `slugify`). Đảm bảo slug là unique.
+        - Lưu danh mục mới vào DB.
+    - **Response (Success 201):** Thông tin danh mục vừa tạo.
+    - **Response (Error 400/401/403/409):** Lỗi validation, xác thực, quyền hoặc tên/slug đã tồn tại.
     - **Phân quyền:** ADMIN.
     - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`.
-5. **Xem chi tiết Người dùng (Admin - Get User Details)**
-    - **Endpoint:** `GET /api/admin/users/{userId}`
-    - **Mô tả:** Lấy thông tin chi tiết của một người dùng cụ thể (cho Admin).
+4. **Cập nhật Danh mục (Admin - Update Category)**
+    - **Endpoint:** `PUT /api/admin/categories/{categoryId}`
+    - **Mô tả:** Cập nhật thông tin một danh mục (chỉ Admin).
+    - **Request Body:** Tương tự POST, nhưng các trường là optional.
+    `json { "name": "string (optional)", "description": "string (optional)", "parentId": "string (optional, ObjectId)", "imageUrl": "string (optional, URL trả về từ upload)", "slug": "string (optional)" // Cho phép sửa slug nếu cần, phải đảm bảo unique }`
     - **Logic:**
         - Sử dụng `authenticateToken` và `authorizeRole(\'ADMIN\')`.
-        - Truy vấn DB lấy thông tin user theo `userId` (bao gồm cả địa chỉ, lịch sử đơn hàng nếu cần).
-        - Không trả về mật khẩu.
-    - **Response (Success 200):** Thông tin chi tiết user.
-    - **Response (Error 401/403/404):** Lỗi xác thực, quyền hoặc không tìm thấy user.
+        - Validate input (nếu sửa tên/slug, kiểm tra unique).
+        - Nếu `name` thay đổi và `slug` không được cung cấp, tự động tạo lại slug.
+        - Cập nhật danh mục trong DB.
+    - **Response (Success 200):** Thông tin danh mục đã cập nhật.
+    - **Response (Error 400/401/403/404/409):** Lỗi validation, xác thực, quyền, không tìm thấy hoặc tên/slug đã tồn tại.
     - **Phân quyền:** ADMIN.
     - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`.
-6. **(Optional) Cập nhật Người dùng (Admin - Update User)**
-    - **Endpoint:** `PUT /api/admin/users/{userId}`
-    - **Mô tả:** Cho phép Admin cập nhật thông tin user (ví dụ: cập nhật role, tên, phone - không nên cho phép đổi email/password trực tiếp).
-    - **Request Body:** Thông tin cần cập nhật.
+5. **Xóa Danh mục (Admin - Delete Category)**
+    - **Endpoint:** `DELETE /api/admin/categories/{categoryId}`
+    - **Mô tả:** Xóa một danh mục (chỉ Admin).
     - **Logic:**
         - Sử dụng `authenticateToken` và `authorizeRole(\'ADMIN\')`.
-        - Validate input.
-        - Cập nhật thông tin user trong DB.
-    - **Response (Success 200):** Thông tin user đã cập nhật.
+        - Kiểm tra xem danh mục có sản phẩm nào không.
+        - Kiểm tra xem danh mục có danh mục con nào không.
+        - **Chiến lược xóa:**
+            - Nếu có sản phẩm hoặc danh mục con: Trả về lỗi 400 yêu cầu di chuyển sản phẩm/danh mục con trước, hoặc cung cấp tùy chọn di chuyển (phức tạp hơn).
+            - Nếu không: Xóa danh mục khỏi DB.
+            - (Hoặc) Xóa mềm: Đánh dấu `isDeleted = true` thay vì xóa hẳn.
+    - **Response (Success 204):** No Content.
+    - **Response (Error 400/401/403/404):** Lỗi ràng buộc (còn sản phẩm/con), xác thực, quyền, hoặc không tìm thấy.
     - **Phân quyền:** ADMIN.
     - **Middleware:** `authenticateToken`, `authorizeRole(\'ADMIN\')`.
+
+**Lưu ý:**
+
+- Cần có cơ chế tạo slug tự động và đảm bảo tính duy nhất.
+- Xử lý cẩn thận việc xóa danh mục để tránh mất dữ liệu liên quan (sản phẩm).
