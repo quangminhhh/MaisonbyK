@@ -6,8 +6,9 @@ import { OrderStatus } from '@prisma/client'
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { orderId: string } },
-) {
+  { params }: { params: Promise<{ orderId: string }> },
+): Promise<NextResponse> {
+  const { orderId } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -23,7 +24,7 @@ export async function PATCH(
   }
 
   const order = await prisma.order.findUnique({
-    where: { id: params.orderId },
+    where: { id: orderId },
     include: { items: true },
   })
   if (!order) {

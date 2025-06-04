@@ -3,11 +3,12 @@ import prisma from '@/lib/prisma'
 
 export async function GET(
   _req: Request,
-  { params }: { params: { slugOrId: string } },
-) {
+  { params }: { params: Promise<{ slugOrId: string }> },
+): Promise<NextResponse> {
+  const { slugOrId } = await params
   const product = await prisma.product.findFirst({
     where: {
-      OR: [{ slug: params.slugOrId }, { id: params.slugOrId }],
+      OR: [{ slug: slugOrId }, { id: slugOrId }],
       NOT: { status: 'UNLISTED' },
     },
     include: {
