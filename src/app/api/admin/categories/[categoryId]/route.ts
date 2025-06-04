@@ -45,9 +45,13 @@ export async function PUT(
     }
   }
 
+  if (parsed.data.parentId !== undefined) {
+    updateData.parentId = parsed.data.parentId
+  }
+
   const category = await prisma.category.update({
     where: { id: params.categoryId },
-    data: { ...updateData, parentId: parsed.data.parentId ?? undefined },
+    data: updateData,
   })
   return NextResponse.json({ category })
 }
