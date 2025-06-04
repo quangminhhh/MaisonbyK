@@ -1,4 +1,4 @@
-import { useAuthStore } from '@/store/auth'
+import { useAuthStore, type User } from '@/store/auth'
 import { apiFetch } from '@/lib/api'
 import type { LoginInput, RegisterInput } from '@/lib/validators/auth'
 
@@ -6,7 +6,7 @@ export function useAuth() {
   const { user, token, isAuthenticated, login: setLogin, logout: clear } = useAuthStore()
 
   const login = async (data: LoginInput) => {
-    const res = await apiFetch<{ user: typeof user; token: string }>('/api/auth/login', {
+    const res = await apiFetch<{ user: User; token: string }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
       auth: false,
@@ -15,7 +15,7 @@ export function useAuth() {
   }
 
   const register = async (data: RegisterInput) => {
-    const res = await apiFetch<{ user: typeof user; token: string }>('/api/auth/register', {
+    const res = await apiFetch<{ user: User; token: string }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
       auth: false,
