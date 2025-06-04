@@ -29,7 +29,28 @@ export async function fetchCart(userId: string) {
   if (!cart) {
     cart = await prisma.cart.create({
       data: { userId },
-      include: { items: true },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                images: {
+                  where: { isDefault: true },
+                  take: 1,
+                  select: { url: true },
+                },
+                price: true,
+                promotionalPrice: true,
+                stockQuantity: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
     })
     return { ...cart, items: [], totalAmount: 0 }
   }
