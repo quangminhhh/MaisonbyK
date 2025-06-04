@@ -11,7 +11,10 @@ interface Response {
 }
 
 export default function OrderHistoryList() {
-  const { data, mutate } = useSWR<Response>('/api/orders/my', (url) => apiFetch<Response>(url))
+  const { data, mutate } = useSWR<Response>(
+    '/api/orders/my',
+    (url: string) => apiFetch<Response>(url)
+  )
 
   const changePage = (p: number) => {
     apiFetch<Response>(`/api/orders/my?page=${p}`).then((res) => mutate(res, false))

@@ -17,7 +17,10 @@ export default function ProductList() {
   const search = useSearchParams()
   const router = useRouter()
   const query = search.toString()
-  const { data } = useSWR(`/api/products?${query}`, (url) => apiFetch<Response>(url))
+  const { data } = useSWR(
+    `/api/products?${query}`,
+    (url: string) => apiFetch<Response>(url)
+  )
 
   const changePage = (p: number) => {
     const params = new URLSearchParams(search.toString())
