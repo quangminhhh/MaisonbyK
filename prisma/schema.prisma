@@ -1,1 +1,200 @@
-// TODO: Define your data models here
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// --- Module Xác thực & Người dùng ---
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+model User {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  email          String    @unique
+  password       String
+  phone          String?
+  role           Role      @default(CUSTOMER)
+  addresses      Address[]
+  orders         Order[]
+  cart           Cart?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Address {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipientName String
+  street       String
+  city         String
+  phone        String
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// --- Module Danh mục ---
+
+model Category {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  parentId    String?   @db.ObjectId
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([slug])
+}
+
+// --- Module Sản phẩm ---
+
+enum ProductStatus {
+  AVAILABLE
+  OUT_OF_STOCK
+  UNLISTED
+}
+
+model Product {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  slug           String        @unique
+  description    String
+  price          Float
+  promotionalPrice Float?
+  categoryId     String        @db.ObjectId
+  category       Category      @relation(fields: [categoryId], references: [id])
+  images         Image[]
+  sizes          String[]
+  colors         String[]
+  material       String?
+  stockQuantity  Int
+  status         ProductStatus @default(AVAILABLE)
+  orderItems     OrderItem[]
+  cartItems      CartItem[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([name])
+  @@fulltext([name, description])
+}
+
+model Image {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  url       String
+  altText   String?
+  productId String   @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+// --- Module Giỏ hàng ---
+
+model Cart {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String     @unique @db.ObjectId
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  cartId    String   @db.ObjectId
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String   @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  size      String?
+  color     String?
+  price     Float
+  createdAt DateTime @default(now())
+
+  @@unique([cartId, productId, size, color])
+  @@index([cartId])
+  @@index([productId])
+}
+
+// --- Module Đơn hàng ---
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPING
+  DELIVERED
+  CANCELLED
+  FAILED
+}
+
+enum PaymentMethod {
+  COD
+}
+
+model Order {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderCode      String        @unique @default(cuid())
+  userId         String        @db.ObjectId
+  user           User          @relation(fields: [userId], references: [id])
+  items          OrderItem[]
+  totalAmount    Float
+  status         OrderStatus   @default(PENDING)
+  shippingAddress Json
+  paymentMethod  PaymentMethod @default(COD)
+  paymentStatus  String        @default("PENDING")
+  notes          String?
+  statusHistory  OrderStatusUpdate[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([orderCode])
+  @@index([status])
+}
+
+model OrderItem {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId    String   @db.ObjectId
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String   @db.ObjectId
+  product    Product  @relation(fields: [productId], references: [id], onUpdate: NoAction, onDelete: Restrict)
+  quantity   Int
+  price      Float
+  size       String?
+  color      String?
+  productSnapshot Json?
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderStatusUpdate {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String      @db.ObjectId
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  updatedBy String?
+  timestamp DateTime    @default(now())
+
+  @@index([orderId])
+}
