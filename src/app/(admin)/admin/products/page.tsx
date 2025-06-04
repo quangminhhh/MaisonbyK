@@ -1,0 +1,37 @@
+'use client'
+
+import { useState } from 'react'
+import ProductTable from '@/components/features/admin/products/ProductTable'
+import ProductForm from '@/components/features/admin/products/ProductForm'
+import { Button } from '@/components/ui/Button'
+
+export default function AdminProductsPage() {
+  const [showForm, setShowForm] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleSuccess = () => {
+    setRefreshKey((k) => k + 1)
+    setShowForm(false)
+  }
+
+  return (
+    <div className="p-4">
+      <div className="mb-4 text-right">
+        <Button onClick={() => setShowForm(true)}>Thêm mới</Button>
+      </div>
+      <ProductTable refreshKey={refreshKey} />
+      {showForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-4 rounded-md">
+            <ProductForm onSubmitSuccess={handleSuccess} />
+            <div className="flex justify-end mt-2">
+              <Button variant="secondary" onClick={() => setShowForm(false)}>
+                Đóng
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
