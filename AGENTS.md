@@ -2,7 +2,7 @@
 
 **Mục đích:** Quản lý đăng ký, đăng nhập, đăng xuất và phân quyền.
 
-**Công nghệ:** Node.js, Prisma, JWT (JSON Web Tokens) cho quản lý phiên.
+**Công nghệ:** Node.js, Next.js, Prisma, JWT (JSON Web Tokens) cho quản lý phiên.
 
 **Middleware:**
 
