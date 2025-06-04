@@ -35,13 +35,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
   }
 
-  let address
+  let address: {
+    recipientName: string
+    street: string
+    city: string
+    phone: string
+  }
   if (shippingAddressId) {
-    address = await prisma.address.findFirst({
+    const found = await prisma.address.findFirst({
       where: { id: shippingAddressId, userId: payload.userId },
     })
-    if (!address) {
+    if (!found) {
       return NextResponse.json({ error: 'Invalid address' }, { status: 400 })
+    }
+    address = {
+      recipientName: found.recipientName,
+      street: found.street,
+      city: found.city,
+      phone: found.phone,
     }
   } else if (shippingAddress) {
     address = shippingAddress
