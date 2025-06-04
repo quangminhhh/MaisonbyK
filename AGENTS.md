@@ -1,102 +1,182 @@
-# Thiết kế Frontend - Module Sản phẩm (Product)
+# Thiết kế Frontend - Module Giỏ hàng (Cart)
 
-**Mục đích:** Hiển thị sản phẩm cho khách hàng và cung cấp giao diện quản lý cho admin.
+**Mục đích:** Cung cấp giao diện cho khách hàng xem và quản lý giỏ hàng.
 
 **Routes (App Router):**
 
-- `/products`: Trang danh sách sản phẩm.
-- `/products/{slug}`: Trang chi tiết sản phẩm.
-- `/admin/products`: Trang quản lý sản phẩm (Admin).
-- `/admin/products/new`: Trang thêm mới sản phẩm (Admin).
-- `/admin/products/{productId}/edit`: Trang sửa sản phẩm (Admin).
+- `/cart`: Trang chi tiết giỏ hàng.
 
-**Components (Customer):**
+**Components:**
 
-1. **ProductList (`components/features/products/ProductList.tsx`)**
-    - **Sử dụng:** Tại `/products`.
-    - **UI:** Hiển thị danh sách sản phẩm dưới dạng lưới (grid). Sử dụng `ProductCard` cho mỗi sản phẩm. Tích hợp `ProductFilter`, `ProductSort`, và `Pagination`.
+1. **CartIcon (`components/features/cart/CartIcon.tsx`)**
+    - **Sử dụng:** Trong `Header` của `CustomerLayout`.
+    - **UI:** Icon giỏ hàng, thường có hiển thị số lượng sản phẩm hiện có trong giỏ (badge).
     - **Logic:**
-        - Lấy các tham số lọc, sắp xếp, phân trang từ URL query params.
-        - Fetch dữ liệu từ API `GET /api/products` với các params tương ứng.
-        - Sử dụng React Query/SWR để quản lý data fetching, loading, error states.
-        - Hiển thị skeleton loader khi đang tải.
-        - Cập nhật URL query params khi người dùng thay đổi bộ lọc, sắp xếp hoặc trang.
-2. **ProductCard (`components/features/products/ProductCard.tsx`)**
-    - **Sử dụng:** Trong `ProductList`, trang chủ, sản phẩm liên quan.
-    - **UI:** Hiển thị hình ảnh đại diện, tên sản phẩm, giá (giá gốc và giá khuyến mãi nếu có), có thể có nút “Thêm vào giỏ” nhanh hoặc link đến trang chi tiết.
-    - **Logic:** Nhận dữ liệu sản phẩm qua props. Render thông tin. Link đến `/products/{slug}`.
-3. **ProductFilter (`components/features/products/ProductFilter.tsx`)**
-    - **Sử dụng:** Tại `/products` (thường ở sidebar).
-    - **UI:** Các bộ lọc theo Danh mục (lấy từ API Categories), Khoảng giá (slider hoặc input), Kích thước, Màu sắc, Chất liệu (checkboxes hoặc tags).
+        - Lấy dữ liệu số lượng item từ `useCart` hook (hoặc state management).
+        - Khi click, có thể mở ra một mini-cart dropdown hoặc điều hướng đến trang `/cart`.
+        - Cập nhật số lượng hiển thị khi giỏ hàng thay đổi.
+2. **MiniCart (`components/features/cart/MiniCart.tsx`)** (Optional)
+    - **Sử dụng:** Hiển thị khi click vào `CartIcon`.
+    - **UI:** Dropdown hiển thị tóm tắt các sản phẩm trong giỏ (ảnh nhỏ, tên, số lượng, giá), tổng tiền và nút “Xem giỏ hàng” / “Thanh toán”.
     - **Logic:**
-        - Fetch danh sách danh mục, các tùy chọn lọc khác nếu cần.
-        - Quản lý trạng thái các bộ lọc đã chọn.
-        - Khi người dùng thay đổi bộ lọc, cập nhật URL query params để `ProductList` fetch lại dữ liệu.
-4. **ProductSort (`components/features/products/ProductSort.tsx`)**
-    - **Sử dụng:** Tại `/products` (thường ở phía trên danh sách).
-    - **UI:** Dropdown cho phép chọn tiêu chí sắp xếp (Mới nhất, Giá tăng dần, Giá giảm dần).
-    - **Logic:** Quản lý trạng thái sắp xếp đã chọn. Cập nhật URL query param `sortBy` khi thay đổi.
-5. **ProductDetailView (`components/features/products/ProductDetailView.tsx`)**
-    - **Sử dụng:** Tại `/products/{slug}`.
-    - **UI:** Layout chi tiết sản phẩm:
-        - Cột trái: `ProductImageGallery`.
-        - Cột phải: Tên sản phẩm, Giá, Mô tả ngắn, Lựa chọn Kích thước, Màu sắc (nếu có), Chọn Số lượng, Nút “Thêm vào giỏ hàng”, Thông tin chi tiết (Mô tả đầy đủ, Chất liệu).
-        - Phần dưới: Đánh giá sản phẩm (nếu có), Sản phẩm liên quan (`ProductList` thu nhỏ).
+        - Lấy dữ liệu giỏ hàng từ `useCart` hook.
+        - Render danh sách item tóm tắt.
+3. **CartView (`components/features/cart/CartView.tsx`)**
+    - **Sử dụng:** Tại trang `/cart`.
+    - **UI:** Layout 2 cột:
+        - Cột trái: Danh sách chi tiết các sản phẩm trong giỏ (`CartItem` component). Hiển thị thông báo nếu giỏ hàng trống.
+        - Cột phải: Tóm tắt giỏ hàng (`CartSummary`) bao gồm tổng tiền và nút “Tiến hành thanh toán”.
     - **Logic:**
-        - Lấy `slug` từ URL params.
-        - Fetch dữ liệu chi tiết từ API `GET /api/products/{slug}`.
-        - Quản lý state cho các tùy chọn (size, color, quantity) đã chọn.
-        - Gọi API `POST /api/cart/items` khi nhấn “Thêm vào giỏ hàng” (sử dụng `useCart` hook).
-        - Hiển thị trạng thái tồn kho.
-6. **ProductImageGallery (`components/features/products/ProductImageGallery.tsx`)**
-    - **Sử dụng:** Trong `ProductDetailView`.
-    - **UI:** Hiển thị ảnh lớn và danh sách ảnh thumbnail. Cho phép click thumbnail để đổi ảnh lớn. Có thể có chức năng zoom ảnh.
-    - **Logic:** Nhận danh sách `images` từ props. Quản lý state ảnh đang được chọn.
-
-**Components (Admin):**
-
-1. **ProductTable (`components/features/admin/products/ProductTable.tsx`)**
-    - **Sử dụng:** Tại `/admin/products`.
-    - **UI:** Bảng hiển thị danh sách sản phẩm (Ảnh nhỏ, Tên, Danh mục, Giá, Số lượng tồn, Trạng thái). Có tìm kiếm, lọc theo danh mục/trạng thái, phân trang. Nút “Thêm mới”, “Sửa”, “Xóa”.
+        - Sử dụng `useCart` hook để lấy dữ liệu giỏ hàng chi tiết.
+        - Fetch dữ liệu giỏ hàng từ API `GET /api/cart` khi component mount hoặc khi state cart thay đổi (để đảm bảo đồng bộ và lấy thông tin product mới nhất).
+        - Hiển thị loading state khi đang fetch.
+        - Truyền dữ liệu xuống `CartItem` và `CartSummary`.
+4. **CartItem (`components/features/cart/CartItem.tsx`)**
+    - **Sử dụng:** Trong `CartView` (danh sách bên trái).
+    - **UI:** Hiển thị thông tin một sản phẩm trong giỏ: Ảnh, Tên, Kích thước/Màu sắc đã chọn, Đơn giá, Input chọn Số lượng, Thành tiền, Nút “Xóa”.
     - **Logic:**
-        - Fetch dữ liệu từ API `GET /api/admin/products` (cần endpoint riêng cho admin hoặc param để lấy cả sản phẩm ẩn).
-        - Sử dụng thư viện table.
-        - Link đến trang sửa (`/admin/products/{productId}/edit`).
-        - Xử lý xóa (gọi API `DELETE /api/admin/products/{productId}` sau xác nhận).
-2. **ProductForm (`components/features/admin/products/ProductForm.tsx`)**
-    - **Sử dụng:** Tại `/admin/products/new` và `/admin/products/{productId}/edit`.
-    - **UI:** Form lớn nhập/sửa thông tin sản phẩm:
-        - Tên, Mô tả (WYSIWYG editor nếu có thể), Giá, Giá KM.
-        - Chọn Danh mục (Dropdown từ API Categories).
-        - Nhập Kích thước, Màu sắc, Chất liệu (có thể dùng input tags).
-        - Nhập Số lượng tồn.
-        - Chọn Trạng thái.
-        - Khu vực Upload/Quản lý Hình ảnh (`ImageUploader`).
-        - Nút “Lưu sản phẩm”.
+        - Nhận dữ liệu item qua props.
+        - Khi người dùng thay đổi số lượng:
+            - Gọi hàm cập nhật số lượng từ `useCart` hook (hàm này sẽ gọi API `PUT /api/cart/items/{cartItemId}`).
+            - Có thể có debounce để tránh gọi API liên tục.
+            - Hiển thị loading/disabled state khi đang cập nhật.
+            - Xử lý lỗi (ví dụ: số lượng vượt tồn kho).
+        - Khi người dùng nhấn nút “Xóa”:
+            - Hiển thị xác nhận.
+            - Gọi hàm xóa item từ `useCart` hook (hàm này sẽ gọi API `DELETE /api/cart/items/{cartItemId}`).
+5. **CartSummary (`components/features/cart/CartSummary.tsx`)**
+    - **Sử dụng:** Trong `CartView` (cột phải).
+    - **UI:** Hiển thị Tổng tiền tạm tính. Nút “Tiến hành thanh toán”.
     - **Logic:**
-        - Sử dụng `React Hook Form`.
-        - Nếu là trang sửa, fetch dữ liệu sản phẩm hiện tại từ API `GET /api/products/{productId}` để điền form.
-        - Fetch danh sách danh mục cho dropdown.
-        - Xử lý upload ảnh và lấy URL.
-        - Gọi API `POST /api/admin/products` (thêm mới) hoặc `PUT /api/admin/products/{productId}` (cập nhật) khi submit.
-        - Chuyển hướng về trang danh sách admin sau khi lưu thành công.
-3. **ImageUploader (`components/features/admin/products/ImageUploader.tsx`)**
-    - **Sử dụng:** Trong `ProductForm`.
-    - **UI:** Khu vực cho phép kéo thả hoặc chọn file ảnh. Hiển thị ảnh đã upload dưới dạng thumbnail. Cho phép xóa ảnh, sắp xếp thứ tự, chọn ảnh đại diện.
-    - **Logic:**
-        - Gọi API `POST /api/admin/products/upload-image` cho mỗi ảnh được chọn.
-        - Quản lý danh sách URL ảnh đã upload.
-        - Cung cấp danh sách URL này cho `ProductForm` để gửi lên cùng dữ liệu sản phẩm.
+        - Nhận tổng tiền từ `CartView` hoặc tính toán lại từ danh sách items.
+        - Nút “Tiến hành thanh toán” điều hướng đến trang `/checkout`.
+        - Vô hiệu hóa nút nếu giỏ hàng trống hoặc có item không hợp lệ (ví dụ: sản phẩm đã bị xóa).
 
 **Trang (Pages):**
 
-- **Customer Product List (`app/(customer)/products/page.tsx`)**: Sử dụng `CustomerLayout`, hiển thị `ProductFilter`, `ProductSort`, `ProductList`.
-- **Customer Product Detail (`app/(customer)/products/{slug}/page.tsx`)**: Sử dụng `CustomerLayout`, hiển thị `ProductDetailView`.
-- **Admin Product List (`app/(admin)/admin/products/page.tsx`)**: Sử dụng `AdminLayout`, hiển thị `ProductTable` và nút “Thêm mới”.
-- **Admin Product New/Edit (`app/(admin)/admin/products/(new|{productId}/edit)/page.tsx`)**: Sử dụng `AdminLayout`, hiển thị `ProductForm`.
+- **Cart Page (`app/(customer)/cart/page.tsx`)**: Sử dụng `CustomerLayout`, hiển thị `CartView`. Cần được bảo vệ, yêu cầu đăng nhập.
 
 **State Management & Data Fetching:**
 
-- React Query/SWR cho fetch/cache sản phẩm, danh mục.
-- React Hook Form cho state form admin.
-- URL query params để quản lý state lọc/sắp xếp/phân trang trên trang danh sách sản phẩm.
+- **`useCart` Hook (Zustand/Context):**
+    - Quản lý state `cart` (bao gồm `items`, `totalAmount`, `isLoading`, `error`).
+    - Cung cấp các hàm:
+        - `fetchCart()`: Gọi API `GET /api/cart` để lấy/đồng bộ giỏ hàng.
+        - `addItem(itemData)`: Gọi API `POST /api/cart/items`, cập nhật state khi thành công.
+        - `updateItemQuantity(itemId, quantity)`: Gọi API `PUT /api/cart/items/{itemId}`, cập nhật state.
+        - `removeItem(itemId)`: Gọi API `DELETE /api/cart/items/{itemId}`, cập nhật state.
+        - `clearCart()`: Xóa state giỏ hàng (dùng sau khi checkout thành công).
+    - State này cần được khởi tạo bằng cách gọi `fetchCart()` khi người dùng đăng nhập hoặc tải lại trang.
+- React Query/SWR có thể được dùng bên trong `useCart` hook để quản lý việc fetch và cache dữ liệu từ API `/api/cart`.
+
+# Thiết kế Frontend - Module Đơn hàng (Order)
+
+**Mục đích:** Cung cấp giao diện cho khách hàng đặt hàng, xem lịch sử đơn hàng và cho admin quản lý đơn hàng.
+
+**Routes (App Router):**
+
+- `/checkout`: Trang tiến hành thanh toán.
+- `/order/confirmation/{orderId}`: Trang xác nhận đặt hàng thành công.
+- `/account/orders`: Trang lịch sử đơn hàng của khách hàng.
+- `/account/orders/{orderId}`: Trang chi tiết đơn hàng của khách hàng.
+- `/admin/orders`: Trang quản lý danh sách đơn hàng (Admin).
+- `/admin/orders/{orderId}`: Trang xem chi tiết đơn hàng (Admin).
+
+**Components (Customer):**
+
+1. **CheckoutForm (`components/features/checkout/CheckoutForm.tsx`)**
+    - **Sử dụng:** Tại `/checkout`.
+    - **UI:** Layout 2-3 cột:
+        - Thông tin giao hàng: Chọn địa chỉ đã lưu (`AddressList` thu gọn) hoặc nhập địa chỉ mới (`AddressForm`).
+        - Tóm tắt đơn hàng (`OrderSummary`): Danh sách sản phẩm (`OrderItem` thu gọn), tổng tiền.
+        - Chọn phương thức thanh toán (Hiện chỉ có COD).
+        - Ô nhập Ghi chú (optional).
+        - Nút “Đặt hàng”.
+    - **Logic:**
+        - Fetch giỏ hàng hiện tại (`useCart`) và danh sách địa chỉ (`GET /api/users/me/addresses`).
+        - Quản lý state địa chỉ được chọn hoặc địa chỉ mới nhập.
+        - Sử dụng `React Hook Form` cho phần nhập địa chỉ mới.
+        - Khi nhấn “Đặt hàng”:
+            - Validate thông tin (địa chỉ đã chọn/nhập).
+            - Gọi API `POST /api/orders` với `shippingAddressId` hoặc `shippingAddress` object, `paymentMethod`, `notes`.
+            - Hiển thị loading state.
+            - Xử lý lỗi từ API (ví dụ: hết hàng, lỗi server).
+            - Nếu thành công, gọi `clearCart()` từ `useCart` và chuyển hướng đến trang xác nhận `/order/confirmation/{orderId}`.
+2. **OrderSummary (`components/features/orders/OrderSummary.tsx`)**
+    - **Sử dụng:** Trong `CheckoutForm`, `OrderConfirmation`, `OrderDetailView`.
+    - **UI:** Hiển thị danh sách các `OrderItem` (phiên bản chỉ đọc), tổng tiền sản phẩm, phí vận chuyển (nếu có), tổng cộng.
+    - **Logic:** Nhận danh sách items và tổng tiền qua props. Render thông tin.
+3. **OrderItem (`components/features/orders/OrderItem.tsx`)** (Có thể dùng chung/kế thừa từ CartItem)
+    - **Sử dụng:** Trong `OrderSummary`.
+    - **UI:** Phiên bản chỉ đọc của CartItem: Ảnh, Tên, Size/Color, Số lượng, Đơn giá, Thành tiền.
+    - **Logic:** Nhận dữ liệu item qua props.
+4. **OrderConfirmation (`components/features/orders/OrderConfirmation.tsx`)**
+    - **Sử dụng:** Tại `/order/confirmation/{orderId}`.
+    - **UI:** Thông báo đặt hàng thành công, hiển thị Mã đơn hàng (`orderCode`), tóm tắt đơn hàng (`OrderSummary`), thông tin giao hàng dự kiến (nếu có). Nút “Tiếp tục mua sắm” hoặc “Xem chi tiết đơn hàng”.
+    - **Logic:**
+        - Lấy `orderId` từ URL.
+        - Fetch thông tin cơ bản của đơn hàng từ API `GET /api/orders/{orderId}` để hiển thị mã đơn, tổng tiền.
+5. **OrderHistoryList (`components/features/account/OrderHistoryList.tsx`)**
+    - **Sử dụng:** Tại `/account/orders`.
+    - **UI:** Danh sách các đơn hàng đã đặt, mỗi đơn hàng là một `OrderHistoryItem`. Có phân trang.
+    - **Logic:**
+        - Fetch danh sách đơn hàng từ API `GET /api/orders/my` với phân trang.
+        - Sử dụng React Query/SWR.
+6. **OrderHistoryItem (`components/features/account/OrderHistoryItem.tsx`)**
+    - **Sử dụng:** Trong `OrderHistoryList`.
+    - **UI:** Card hiển thị thông tin tóm tắt đơn hàng: Mã đơn hàng, Ngày đặt, Tổng tiền, Trạng thái. Có link/nút “Xem chi tiết”.
+    - **Logic:** Nhận dữ liệu đơn hàng qua props. Link đến `/account/orders/{orderId}`.
+7. **CustomerOrderDetailView (`components/features/account/CustomerOrderDetailView.tsx`)**
+    - **Sử dụng:** Tại `/account/orders/{orderId}`.
+    - **UI:** Hiển thị chi tiết đơn hàng:
+        - Thông tin chung: Mã đơn hàng, Ngày đặt, Trạng thái.
+        - Địa chỉ giao hàng.
+        - Phương thức thanh toán.
+        - Danh sách sản phẩm (`OrderSummary`).
+        - Lịch sử trạng thái đơn hàng.
+    - **Logic:**
+        - Lấy `orderId` từ URL.
+        - Fetch chi tiết đơn hàng từ API `GET /api/orders/{orderId}`.
+
+**Components (Admin):**
+
+1. **AdminOrderTable (`components/features/admin/orders/AdminOrderTable.tsx`)**
+    - **Sử dụng:** Tại `/admin/orders`.
+    - **UI:** Bảng hiển thị danh sách tất cả đơn hàng (Mã đơn, Tên KH, Ngày đặt, Tổng tiền, Trạng thái). Có tìm kiếm, lọc theo trạng thái, phân trang.
+    - **Logic:**
+        - Fetch dữ liệu từ API `GET /api/admin/orders`.
+        - Sử dụng thư viện table.
+        - Mỗi hàng có link đến trang chi tiết `/admin/orders/{orderId}`.
+2. **AdminOrderDetailView (`components/features/admin/orders/AdminOrderDetailView.tsx`)**
+    - **Sử dụng:** Tại `/admin/orders/{orderId}`.
+    - **UI:** Tương tự `CustomerOrderDetailView` nhưng có thêm:
+        - Thông tin khách hàng (link đến trang chi tiết user).
+        - Chức năng cập nhật trạng thái đơn hàng (`OrderStatusUpdater`).
+    - **Logic:**
+        - Lấy `orderId` từ URL.
+        - Fetch chi tiết đơn hàng từ API `GET /api/orders/{orderId}` (Admin có quyền xem mọi đơn).
+3. **OrderStatusUpdater (`components/features/admin/orders/OrderStatusUpdater.tsx`)**
+    - **Sử dụng:** Trong `AdminOrderDetailView`.
+    - **UI:** Dropdown hoặc các nút để chọn trạng thái mới (Processing, Shipping, Delivered, Cancelled). Nút “Cập nhật trạng thái”.
+    - **Logic:**
+        - Nhận trạng thái hiện tại và `orderId` qua props.
+        - Quản lý state trạng thái mới được chọn.
+        - Gọi API `PATCH /api/admin/orders/{orderId}/status` khi nhấn nút cập nhật.
+        - Hiển thị loading/error/success state.
+        - Refresh lại chi tiết đơn hàng sau khi cập nhật thành công.
+
+**Trang (Pages):**
+
+- **Checkout Page (`app/(customer)/checkout/page.tsx`)**: Sử dụng `CustomerLayout`, hiển thị `CheckoutForm`. Yêu cầu đăng nhập.
+- **Order Confirmation Page (`app/(customer)/order/confirmation/{orderId}/page.tsx`)**: Sử dụng `CustomerLayout`, hiển thị `OrderConfirmation`. Yêu cầu đăng nhập.
+- **Customer Order History (`app/(customer)/account/orders/page.tsx`)**: Sử dụng `CustomerLayout` và `AccountLayout`, hiển thị `OrderHistoryList`. Yêu cầu đăng nhập.
+- **Customer Order Detail (`app/(customer)/account/orders/{orderId}/page.tsx`)**: Sử dụng `CustomerLayout` và `AccountLayout`, hiển thị `CustomerOrderDetailView`. Yêu cầu đăng nhập.
+- **Admin Order List (`app/(admin)/admin/orders/page.tsx`)**: Sử dụng `AdminLayout`, hiển thị `AdminOrderTable`. Yêu cầu Admin.
+- **Admin Order Detail (`app/(admin)/admin/orders/{orderId}/page.tsx`)**: Sử dụng `AdminLayout`, hiển thị `AdminOrderDetailView`. Yêu cầu Admin.
+
+**State Management & Data Fetching:**
+
+- React Query/SWR để fetch/cache đơn hàng.
+- `useCart` hook để lấy giỏ hàng cho checkout và xóa sau khi đặt hàng.
+- Form state quản lý bởi `React Hook Form` (cho địa chỉ mới ở checkout).
+- State cập nhật trạng thái đơn hàng (Admin) quản lý bằng `useState`.
