@@ -7,8 +7,9 @@ import { Prisma } from '@prisma/client'
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { categoryId: string } }
-) {
+  { params }: { params: Promise<{ categoryId: string }> },
+): Promise<NextResponse> {
+  const { categoryId } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -37,7 +38,7 @@ export async function PUT(
     const exist = await prisma.category.findFirst({
       where: {
         OR: orConditions,
-        NOT: { id: params.categoryId },
+        NOT: { id: categoryId },
       },
     })
     if (exist) {
@@ -50,7 +51,7 @@ export async function PUT(
   }
 
   const category = await prisma.category.update({
-    where: { id: params.categoryId },
+    where: { id: categoryId },
     data: updateData,
   })
   return NextResponse.json({ category })
@@ -58,8 +59,9 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { categoryId: string } }
-) {
+  { params }: { params: Promise<{ categoryId: string }> },
+): Promise<NextResponse> {
+  const { categoryId } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -68,15 +70,15 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const childCount = await prisma.category.count({ where: { parentId: params.categoryId } })
+  const childCount = await prisma.category.count({ where: { parentId: categoryId } })
   if (childCount > 0) {
     return NextResponse.json({ error: 'Category has subcategories' }, { status: 400 })
   }
-  const productCount = await prisma.product.count({ where: { categoryId: params.categoryId } })
+  const productCount = await prisma.product.count({ where: { categoryId: categoryId } })
   if (productCount > 0) {
     return NextResponse.json({ error: 'Category has products' }, { status: 400 })
   }
 
-  await prisma.category.delete({ where: { id: params.categoryId } })
+  await prisma.category.delete({ where: { id: categoryId } })
   return NextResponse.json({}, { status: 204 })
 }
