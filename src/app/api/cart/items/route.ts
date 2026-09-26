@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { authenticateToken } from '@/lib/auth'
 import { addCartItemSchema } from '@/lib/validators/cart'
-import { fetchCart } from '../route'
+import { fetchCart } from '@/lib/cart'
 
 export async function POST(req: NextRequest) {
   const payload = authenticateToken(req)

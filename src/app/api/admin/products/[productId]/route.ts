@@ -7,8 +7,9 @@ import { Prisma } from '@prisma/client'
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { productId: string } },
-) {
+  { params }: { params: Promise<{ productId: string }> },
+): Promise<NextResponse> {
+  const { productId } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -35,7 +36,7 @@ export async function PUT(
     if (updateData.slug) or.push({ slug: updateData.slug as string })
     if (updateData.name) or.push({ name: updateData.name as string })
     const exist = await prisma.product.findFirst({
-      where: { OR: or, NOT: { id: params.productId } },
+      where: { OR: or, NOT: { id: productId } },
     })
     if (exist) {
       return NextResponse.json({ error: 'Product already exists' }, { status: 409 })
@@ -43,7 +44,7 @@ export async function PUT(
   }
 
   const product = await prisma.product.update({
-    where: { id: params.productId },
+    where: { id: productId },
     data: updateData,
   })
   return NextResponse.json({ product })
@@ -51,8 +52,9 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { productId: string } },
-) {
+  { params }: { params: Promise<{ productId: string }> },
+): Promise<NextResponse> {
+  const { productId } = await params
   const payload = authenticateToken(req)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -61,11 +63,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const orderItemCount = await prisma.orderItem.count({ where: { productId: params.productId } })
+  const orderItemCount = await prisma.orderItem.count({ where: { productId } })
   if (orderItemCount > 0) {
     return NextResponse.json({ error: 'Product is referenced in orders' }, { status: 400 })
   }
 
-  await prisma.product.delete({ where: { id: params.productId } })
+  await prisma.product.delete({ where: { id: productId } })
   return NextResponse.json({}, { status: 204 })
 }
